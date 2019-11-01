@@ -140,11 +140,11 @@
     
 ```
 
-    - STL 컨테이너의 모든 요소를 열거하는 방법
-        - [] 연산자 사용 - vector등 일부 컨테이너만 가능. list는 안됨
-        - 반복자 사용 - 대부분 컨테이너 가능
-        - range for문 사용   ->   for(auto& n : s)
-        - 스트림 반복자 - Section 3 참조
+- STL 컨테이너의 모든 요소를 열거하는 방법
+    - [] 연산자 사용 - vector등 일부 컨테이너만 가능. list는 안됨
+    - 반복자 사용 - 대부분 컨테이너 가능
+    - range for문 사용   ->   for(auto& n : s)
+    - 스트림 반복자 - Section 3 참조
     
 # 2-3 : STL의 특징
 - member type
