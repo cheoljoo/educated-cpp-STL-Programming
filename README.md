@@ -206,4 +206,261 @@
 
 # 3. 반복자 (Iterator)
 ## 3-1 : 반복자 기본
-- 
+- 반복자(Iterator) in GoF's design pattern
+    - provice a way to access the elements of an aggregate object sequentially without exposing its underlying representation.
+    - 복합 객체의 내부 구조에 상관없이 순차적으로 요소에 접근하는 방법을 제공하는 것
+- 반복자 (iterator) in STL
+    - ++ 연산자로 이동가능하고 , * 연산자로 요소에 접근 가능한 것 
+    - 대표적인 것은 C의 pointer (STL 에서는 포인터도 반복자)
+    - directory_iterator  ++p : 다음 하위 폴더  // C++17부터 제공  :: 재미난 모양의 반복자 예제
+        - using namespace std::experimental::filesystem;
+        - g++ iterator1.cpp -std=c++1z -lstdc++fs
+- 반복자의 다양한 형태
+    - Raw Pointer
+    - container의 요소를 열거위한 객체 ( begin() )
+    - stream iterator
+    - insert iterator
+    - directory iterator ...
+- contailer에서 반복자를 꺼내는 다양한 방법들
+    - list<int>::iterator p = s.begin();
+    - auto p1 = s.begin;    // C++11
+    - int s[5]; // 진짜 배열을 썼을 경우 
+        - auto p1 = begin(s);  // 이렇게 일반 함수를 사용.  배열도 가능하게 함수 overloading 해 놓음. C++11
+        - int n = size(s);  empty(s)  , end(s)  // 이렇게 일반함수 사용하는게 더 일반적이됨. 
+        - auto p2 = end(s); // 이때 end일때는 마지막 다음을 가리키므로 dereferencing을 하면 안된다. 끝을 아는 용도로만
+- 반복자의 무효화 현상 : auto p = begin(v);  v.resize(100); 일경우에 전에 *p 을 사용할수 없음.
+    - vector등의 컨테이너의 내부 버퍼가 재할당될때
+    - 반복자가 가리키던 요소가 제거(erase)될때
+    - 컨테이너의 종류에 따라 무효화되는 조건이 다르다.  (vector는 무효화 가능할수 있지만, list는 무효화되지 않는다.)
+- 반복자의 구간 (range)
+    - [first,last) 
+    - 유효한 구간 : first부터 시작해서 ++연산으로 last에 도달할수 있는 구간
+    - empty 구간 : fist == last 인 경우,   빈 구간도 유효한 구간이다.
+- copy 알고리즘
+    - copy (x , x+5 , begin(y) );  출력 for(auto& n : y) { cout << n << endl; }
+    - <algorithm>
+
+## 3-2. 반복자 카테고리 (iterator category)
+- vector<int> v ...  ; sort( begin(v) , end(v) );
+- list<int> v 로 하면 에러가 나온다.   // ++p , --p 가능.    //이유는 list는 sort 사용할수 없다. 
+- forward_list<int> s1 ;   ++p; 문제 없지만,  --p; 는 에러
+- 반복자들도 연산이 모두 다르다. 
+- 반복자는 적용할수 있는 연산에 따라 5가지(C++17부터는 6가지)로 분류
+    - 입력 반복자 (input iterator) : 입력 (=*i) , ++
+    - 출력 반복자 (output iterator) : 출력 (*i=) , ++
+    - 전진형 반복자 (forward iterator) : 입력 , ++ , multiple pass                  <forward_list>
+    - 양방향 반복자 (bidirectional iterator) : 입력 , ++ , -- , multiple pass       <list>
+    - 임의 접근 반복자 (random access iterator) : 입력 , ++ , -- , + , - , []       <vector> <deque>
+    - 인접한 반복자 (contiguous iterator)- C++17 : 입력 , ++ , -- , + , - , [] , *(i+n) == *(addressof(*a) + n)    <vector>
+- 출력 가능한 반복자 : "mutable iterator"
+
+- multipass guarantee 개념
+    - i1 == i2 일때 *i1 == *i2   &&    i1==i2일때 ++i1 == ++i2 
+    - 2개 이상의 반복자가 컨테이너의 요소에 동일하게 접근함을 보장
+    - list의 반복자는 multipass를 보장한다. 
+    - stream / insert iterator는 multipass를 보장하지 못한다.
+
+- 다양한 알고리즘의 인자로 요구하는 반복자 카테고리가 무엇인지 알아야 한다. 
+    - auto p = find(begin(v) , end(v) , 5);  // 1,2인자 최소 요구조건 - 입력 반복자
+    - reverse(begin(v) , end(v));   // 양방향
+    - sort(begin(v) , end(v));      // 임의 접근 반복자 : 반으로 갈라야 한다.
+        - list<int> s2는 sort(s2); // error
+        - s2.sort(); // ok   quick sort가 아닌 다른 알고리즘을 사용했을 것임
+        - vector<int> v;  v.sort();  // 멤버함수 sort()가 있을까?  NO  -> 일반 함수 (알고리즘) sort()를 사용하면 된다.
+
+- tag dispatching #1 (1. 함수 인자를 사용하는 overloading)
+    - list<int> s;   // 반복자 p를 5칸 전진하고 싶다.
+    - advance(p,5);   
+        - <iterator> 헤더
+        - 반복자를 N만큼 전진(후진)하는 함수
+        - 임의반복자와 그렇지 않은 경우를 분리하여 구현 하면 성능도 좋아진다. vector<int> , list<int>는 다르게 처리
+    - iterator category tag
+        - <iterator> 헤더
+        - 반복자의 5가지 category를 나타내는 타입. empty class로 제공
+        - C++17에서 추가된 contiguous iterator는 별도의 tag가 제공되지 않음.
+        - using iterator_category = bidirectional_iterator_tag;
+        - template<typename T>  void advance_imp(p,n,  typename T::iterator_category() ); // 객체여야 함.
+- tag dispatching #2 
+    - 2. is_same< , > 사용  / <type_traists>  / C++17 if constexpr 사용 (함수 1개)
+        - if constexpr (is_same< T::iterator_category , random_access_terator_tag>::value) { }
+    - 3. enable_if 를 사용 (SFINAE 개념 사용)  C++11  (함수 2개)
+        - template <typename T>  enable_if<is_same<typename T::iterator_category,random_access_iterator_tag>::value>::type advance(T& p,intn){ }
+        - template <typename T>  enable_if<! is_same<typename T::iterator_category,random_access_iterator_tag>::value>::type advance(T& p,intn){ }
+
+- 반복자와 member type
+    - 1. 반복자를 만들때 반드시 member type을 제공해야 한다. 
+        - using terator_category = forward_iterator_tag;
+        - using value_type = T;
+        - using pointer = T*;
+        - using reference = T&;
+        - using difference_type = std::ptrdiff_t;
+    - 2. template<typename T> class slist_iterator : public iterator< forward_iterator_tag , T> { } 
+        - <iterator> 헤더
+        - C++17부터는 사용되지 않음.
+- 알고리즘과 category
+    - template 인자들도 category 이름으로 적어주면 좋음.
+    
+## 3-3. 반복자 특질 (iterator traits)
+- 반복자 타입::value_type
+    - template <typename T> typename T::value_type  sum(T f,T s){ auto s = $f; }
+    - typename T::value_type s = 0;
+- 반복자는 2가지 형태
+    - user define type으로 만들어진 반복자 : value_type이 있다. 
+    - raw pointer (array)는 value_type이 없다.
+- array일때도 해결하는 방법
+    - // 핵심 : template을 사용할때는 부분특수화 가능하다.
+    - template<typename T> struct iterator_traits { using value_type=typename T::value_type; }
+    - template<typename T> struct iterator_traits<T*> { using value_type = T; }
+    - template <typename T> typename iterator_traits<T>::value_type  sum(T f,T s){ auto s = $f; }
+- value_type을 사용하는 2가지 방식
+    - T::value_type
+    - iterator_traits<T>::value_type   <- **Raw pointer도 해결되므로 꼭 이것을 사용하자.**
+
+- template<class T> struct iterator_traits<T*>{ using iterator_category = random_access_iterator_tag; ... }
+
+- auto / decltype을 사용하는 경우 
+    - decltype(*first) s = 0;   // 반복자의 역참조의 type에 담겠다. error
+        - decltype( *포인터타입 ) 
+    - typename remove_reference<decltype(*first)::type s = 0;   // ok.
+    - type deduction 규칙을 정확히 알고 사용해야 한다.
+
+## 3-4. 삽입 반복자 (insert iterator)
+- 삽입 반복자(insert iterator)
+    - s.push_back(10);
+    - back_insert_iterator< list<int> > p(s);   *p = 20;  // s.push_ack(20);
+        - 삽입 반복자 사용하여 추가 가능 (전방 삽입 , 후방 삽입 , 임의 삽입)
+    - 기본 모양
+        - back_insert_iterator<컨테이너 클래스 이름> p(컨테이너 객체);
+    - int x[5] = {1,2,3,4,5};   for(int i=0;i<5;i++){ s.push_back(x[i]); }
+        - copy(x,x+5,p);  // p는 위의 back_insert_iterator 이다. 이렇게 한번에 push가 가능한다.
+    - copy와 같은 STL 알고리즘을 사용하여 컨테이너에 요소를 추가 할수 있다.
+        - 꼭 이것 아니어도 s.end()를 copy argument로 넣어주어도 될 것으로 보임.  <- 이것은 덮어 쓴 것이라고함. push_back이 아닌 덮어 쓴 것
+    - template<typename T> back_insert_iterator<T>  back_inserter(T& c){ return back_insert_iterator<T>(c); }
+        - copy(x , x+5 , back_inserter(s) ); // **back_inserter() c++ 11에 이미 제공**
+
+- 삽입 반복자의 종류
+    - back_insert_iterator   : back_inserter()
+    - front_insert_iterator  : front_inserter()   // 1,2,3,4,5를 앞쪽에 집어 넣으면 결과는 뒤집어져있다. 
+    - insert_iterator        : inserter()
+- 주의 사항
+    - vector는 앞에 삽입할수 없다.  (push_front 멤버 함수가 없다.)
+    - 임의 삽입의 경우 생성자 인자가 2개 이다.  (컨테이너와 삽입할 위치를 나타내는 반복자)
+- 전방 삽입과 임의 삽입
+    - 전방 삽입을 사용해서 컨테이너에 삽입하면 요소의 순서가 반대로 삽입되지만,
+    - 임의 삽입을 사용해서 컨테이너의 앞에 삽입하면 요소의 순서대로 삽입된다. 
+
+- 동작 원리
+    - C* container
+    - explicit back_insert_iterator(C& c) : container(std::addressof(c)){}   // c.operator&()  &c 대신 addressof() 사용하면 좋다.  C++표준 함수
+        - explicit 로 생성자 만들어 변환을 막는다. 
+    - *p = 30; // (p.operator*() ).operator=(30)
+        - eback_insert_iterator& operator*(){ return *this;}
+        - eback_insert_iterator& operator=(const typename C::value_type& a){ container->push_back(a); return *this;}
+    - copy(x,x+2,p); // ++p 로 이동하므로 ++이 있어야함.
+        - eback_insert_iterator& operator++(){ return *this;}      // 전형  ++p
+        - eback_insert_iterator& operator++(int){ return *this;}   // 후형  p++
+    - C++11일때는 move도 만들어야 한다. 
+        - eback_insert_iterator& operator=(const typename C::value_type&& a){ container->push_back(move(a)); return *this;}
+    - g++에서는 copy를 만들때 내부적으로 아래 것을 사용한다.
+        - using iterator_category = output_iterator_tag;
+        - using value_type = void;
+        - using pointer = void;
+        - using reference = void;
+        - using differnce_type = void;
+        - using container_type = C; // **삽입 반복자는 container_type을 가져야 한다.**
+
+- 정리
+    - 모든 반복자는 *로 요소에 접근 가능하고 ++ 로 이동가능해야 한다.   no-op
+    - =연산 : push_back , push_front , insert
+    
+## 3-5. 스트림 반복자 (stream iterator)
+- ostream_iterator<int> p(cout, ", ");  *p = 20;  // cout << 20 << ", "
+- copy(begin(s) , end(s) , p);
+- fill_n(p , 3, 0);  // 0, 0, 0,
+- 스트림 반복자
+    - ostream_iterator : basic_ostream
+    - ostreambuf_iterator : basic_ostreambuf    CharT 출력
+    - istream_iterator : basic_istream  
+    - istreambuf_iterator : basic_istreambuf  CharT 입력
+- ostream_iterator 
+    - * , ++ 제공해야 햔다.  대신 ++p 는 no-op
+    - ofstream f("a.txt);   ostream_iterator<int> p(f,",");  *p=30;  // file로 출력이 되는 것이다.
+    - 구현
+        - template<typename T , typename CharT=char , typename Traits = char_traits<CharT>> class ostream_iterator
+        - using iterator_category = output_iterator_tag;  value_type , pointer,reference , difference_type (일반적)
+        - using char_type = CharT;
+        - using traits_type = Traits;
+        - using ostream_type = basic_ostream<CharT,Traits>;
+        
+- ostreambuf_iterator
+    - ostreambuf_iterator<char> p(cout);  *p = 65;  // buf는 char만 가능함  'A'
+    - 내부 동작
+        - rdbuf() : stream 객체가 사용하는 streambuf의 포인터를 변환하는 stream 멤버함수
+        - basic_streambuf<>::sputc() :  streambuf에 한 문자를 출력하는 함수
+- istream_iterator
+    - sgetc() 'x' , snextc() '\t' , snextc() 'y'
+    - 디폴트 생성자는 end of stream을 나타낸다.
+    - istream_iterator<char> p1(f) , p2;   ostream_iterator<char> p3;
+        - copy(p1,p2,p3);  // 공백이 모두 무시됨.
+    - istreambuf_iterator<char> p1(f) , p2;   ostream_iterator<char> p3;
+        - copy(p1,p2,p3);  // 공백까지 모두 출력됨.
+
+## 3-6. 반복자 어답터 (iterator adapter)
+- iterator adapter
+    - reverse_iterator : 거꾸로
+        - auto p1=begin(s);  auto p2=end(s);
+        - reverse_iterator< list<int>::iterator > p3(p2);  // p3,p4는 독립적인 객체로 움직이는 것이다. 
+        - reverse_iterator< list<int>::iterator > p4(p1);
+        - ++p3;  // --p2처럼
+        - find(p3,p4,3);
+    - 구현
+        - template <typename ITER> class reverse_iterator{ ITER iter;  reverse_iterator(ITER i){ iter = i; --iter; }
+        - typename ITER::value_type operator*(){ return *iter; }
+        - 그외는 일반 iterator와 같이...
+    - GoF의 adapter 패턴이다. 기존 것의 동작을 바꿔주는 것이다.
+- reverse_iterator를 만든느 4가지 방법
+    1. 기존 반복자를 가지고 생성 (adapter) : reverse_iterator<> 클래스 사용
+    1. make_reverse_iterator<>  함수 사용
+    1. 컨테이너에서 직접 꺼내기 : .rbegin() , .rend() 멤버 함수 
+    1. rbegin(),rend()  일반 함수  : find (rbegin(s) , rend(s) , 3)
+- iterator 4가지 종류
+    - list<int>::iterator p1 = begin(s);
+    - list<int>::reverse_iterator p2 = rbegin(s);
+    - list<int>::const_iterator p3 = cbegin(s);
+    - list<int>::const_reverse_iterator p4 = crbegin(s);
+- <forward_list>  : single list
+    - 이때는 reverse 안됨.  rbegin(s2) 안됨.
+- move_iterator adapter (C++11)
+    - people.h  class People
+    - People peo1 = *p1;  // 복사 생성자를 부름 (copy : constructor)
+    - 방법 1. move_iterator< vector<People>::interator > p2(p1);   
+        - People peo2 = *p2;  // move 생성자
+        - People peo3 = move(*p1);  // move 생성자  rvalue 참조를 return
+    - 방법 2. auto p3 = make_move_iterator(begin(v));
+    - vector<People> v2(begin(v) , end(v));  // 복사 생성자
+    - vector<People> v2(make_move_iterator(begin(v)) , make_move_iterator(end(v)) );  // move 생성자
+        - C++11 부터 지원됨.
+    
+## 3-7. 반복자 보조 함수
+- iterator 보조 함수 <iterator>
+    - next 
+        - int* foo()  -> 진짜 pointer를 return하는 foo()에 대해서 ++foo()은 에러 
+        - but   p2 = next(foo()); 는 가능
+    - prev
+    - advance : 반복자를 N만큼 이동
+    - distance : 2개 반복차의 차이
+    - iter_swap : 2개의 반복자가 가리키는 요소 교환
+
+
+
+
+
+
+
+
+
+
+
+
+
+
