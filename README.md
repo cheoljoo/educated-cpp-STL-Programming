@@ -451,10 +451,108 @@
     - distance : 2개 반복차의 차이
     - iter_swap : 2개의 반복자가 가리키는 요소 교환
 
+# 4. 알고리즘 (Algorithm)
+## 4-1. STL 알고리즘의 개념.
+- <algorithm> <numeric> <memory>
+- 알고리즘은 컨테이너를 알지 못한다.  어떤 컨테이너의 반복자인지 알수 없다.
+    - remove는 ?을 제거하고 메모리를 당기는 역할을 한다.  return 값은 다음 요소를 받게 된다. p = remove(begin(v) , end(v) , 3)
+    - 지우는 것은 일반 algorithm이 아닌 멤버 함수를 사용해야 한다. v.erase(p,end(v));
+- 알고리즘보다 멤버함수가 좋은 경우가 있다.
+    - v.remove(3);
 
+## 4-2. 알고리즘과 함수
+- 함수 객체(function object)
+    - a + b  // a.operator+(b)
+    - a();   // a.operator()()
+    - a(1,2)  // a.operator()(1,2)
+- 함수 객체 (function objet , Functor)
+    - 최초에는 "() 연산자를 재정의해서 함수 처럼 사용가능한 객체"라는 의미
+    - 요즘에는 "() 연산자를 사용해서 함수처럼 호출 가능한 모든 객체" : 함수 포인터 , () 재정의한 클래스 , 멤버 함수 포인터 등...
+- 함수 객체의 장점
+    - 알고리즘에 전달시 일반 함수는 인라인 치환이 안되니만 , 함수 객체는 인라인 치환 가능
+    - 상태를 가질수 있다.
+```cpp
+#include <iostream>
+using namespace std;
+// ()를 사용해서 호출하는 것들
+// 1. 함수
+// 2. 함수 포인터
+// 3. ()를 재정의한 클래스
+// 4. 람다표현식...
+Struct Plus {
+    int operator()(int a, int b) const { return a+b; }
+};
 
+Plus p;
+int n = p(1,2);
+```
 
+- #include <functional>   <- 여기 plus 같은 함수들이 template으로 정의되어져있다.
+    - plus<int> p; p(1,2);
+    - multiplies<int> m;  m(3,4);
 
+- 알고리즘과 함수
+    - for_each (begin(v) , end(v) , foo);
+    - STL 알고리즘은 함수를 인자로 가지는 경우가 많이 있다.
+        - 알고리즘의 활용도가 더욱 높여준다.
+        - for_each , transform
+        - for_each는 인자가 1개
+    - 일반 함수 뿐 아니라, 함수 객체 , 람다 표현식을 사용할수 있다. - ()로 호출가능한 모든 객체를 사용 가능
+        - Show s(cout, "\t");  for_each (begin(v),end(v) , s); 와 같이 함수 객체를 넘길수도 있다. Show는 operator()(int a)의 생성자가 있다.
+- 람다 표현식
+    - for_each 
+        - 일반 함수 전달 : for_each (begin(v) , end(v) , foo);
+        - 함수 객체 전달 : for_each (begin(v) , end(v) , s);
+        - C++11 : 람다표현식 : for_each (begin(v) , end(v) , [](int a){cout << a << endl; }  );
+            - []을 lambda introducer 라 부른다.
+- transform 
+    - 인자로 전달된 컨테이너의 모든요소에 연산을 적용후 다른 컨테이너에 복사하는 알고르즘
+        - transform(begin(s1) , end(s1) , begin(s2) , foo) ;  s1 시작 ~ 끝까지는 foo에 인자로 넣어 s2에 return값을 넣는다.
+    - 알고리즘이 2개의 구간을 받을때는 첫번째 구간은 양쪽을 받고 , 2번째 구간은 처음만 받는다. (유추가 가능하다고 한다.)
+        - transform(begin(s1) , end(s1) , back_inserter(s2) , foo) ;  // s2 container가 empty일때도 죽지 않는다. 
+    - 이항 함수 버젼
+        - transform(begin(s1) , end(s1) , begin(s2) , begin(s3) , foo) ; // s1의 모든 내용을 s2와 함께 차례로 foo에 보내서 foo(1,2) 을 하고 결과를 s3에 넣는다.
+        - transform(begin(s1) , end(s1) , begin(s2) , begin(s3) , multiplies<int>() ) ;
+        - transform(begin(s1) , end(s1) , begin(s2) , begin(s3) , [](int a , int b){ return a+b; } ) ;
+
+## 4-3. 알고리즘의 변형
+- 조건자 (Predicator)
+    - bool 타입을 리턴하는 함수 (함수 객체)
+    - find_if(begin(v) , end(v) , 함수);   bool 함수(int a) 가 true를 return하는 첫번째 요소를 찾아라.
+    - find_if(begin(v) , end(v) , [](int a){ return a%3 == 0;  } );
+- 알고리즘의 4가지 형태
+    - 기본 버젼 : remove_if(begin(v) , end(v) , 3);
+    - 조건자 버젼 : remove_if(begin(v) , end(v) , [](int a){ return a%3 == 0; });
+    - 복사 버젼. remove_copy(begin(v) , end(v) , begin(v2) , 3);   // 리턴 값 p는 v2의 반복자
+    - 조건자 복사 버젼 : p = remove_copy_if(begin(v) , end(v) , begin(v2) , [](int a){ return a%3 == 0; });  v2.erase(p,end(v2)); // 3의 배수는 모두 제거 및 뒤의 0을 없앤다. 
+- sort  : STL 설계 철학
+    - 인자 2개는 default , 인자 3개는 뒤에 함수가 나온다.  뒤에 _if 를 안 붙여도 된다.
+    - sort_copy( begin(v1) , end(v1) , begin(v2));  // 이 함수가 존재하는가?  STL에는 존재하지 않는다. 하나로 합쳐봤자 큰 성능 향상이 없다. 
+        - remove_copy : copy 후에 remove하는 것보다 동시에 하는 것이 빠르다. (한번에 하면 성능향상이 된다.)
+        - copy후에 sort하면 된다.  동시에 해도 성능 향상이 크지 않다.
+- std::bind
+    - modulus<int> m;   n = m(10,3);  // 10%3 => 1
+    - find_if(x,x+5, 함수);   // 이미 함수가 있다면 재사용
+        - find_if(x,x+5, m); // error , find_if는 단항함수 인데 modulus는 이항 함수
+        - 이항을 단항으로 바꾸면 넘길수 있다.   --> bind
+    - void foo(int a, int b , int c , int d)
+        - foo(1,2,3,4); // 4항 함수
+        - 2항으로 변경     bind(&foo, 10 , _2 , _1 , 20)(1,2)   // _2 뒤의 2번째 인자를 사용
+            - // bind의 return값으로 나오는 것이 함수 객체
+    - M항 함수 (함수객체)의 인자를 고정한 새로운 함수를 생성
+    - C++11
+    - <functional>
+    - placeholder(_1,_2...)는 std::placeholders 이름 공간에는 있다.
+        - // 4gkd gkatn => 3 항으로
+        - bind(&foo , _3, _2, _1 , 100)(30,20,10);
+        - bind(&foo,1,2,3,4)();
+    - modulus<int> m ;  bind(m, 10 , 3)();
+    - modulus<int> m ;  bind(m, _1 , 3)(7);
+    - modulus<int> m ;  find_if(x, x+5, bind(m, _1 , 3) );
+
+# 5. 컨테이너
+## 5-1. STL Container의 특징
+- 
 
 
 
