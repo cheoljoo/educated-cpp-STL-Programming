@@ -596,6 +596,20 @@ int n = p(1,2);
 ## 5-2. Sequence Container
 - list
 - vector
+    - vector<int> v7(10,0); // 10개의 0으로 초기화
+    - vector<int> v8{10,0}; // 2개의 10,0으로 초기화
+    - v.push_back(10);  // v.push_front(10) 은 에러
+    - v.insert(begin(v) +1 , 30);
+    - v.front;
+    - v[0]
+    - v.assign(x,x+5);  
+    - sort(begin(v) , end(v)) ;   // 이것과 같이 대부분은 algorithm에서 처리
+    - v[100] = 10 ; // 예외 없이 runtime error
+        - v.at(100) = 10;  // 예외 발생  (성능이 떨어짐)
+    - 크기
+        - v.resize(7); // 10개를 7개로 줄임 ->  v.capacity() 10 이며 , v.size()만 7로
+        - v.shrink_to_fit(); // 쓸데 없는 메모리 삭제
+        - 
 - deque
 - forward_list (C++11)
 - array (C++11)
