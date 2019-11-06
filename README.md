@@ -552,7 +552,54 @@ int n = p(1,2);
 
 # 5. 컨테이너
 ## 5-1. STL Container의 특징
-- 
+- container 종류
+    - sequence container
+        - 요소가 삽입된 순서대로 놓여있는 컨테이너
+        - C++98 : list , vector , deque
+        - C++11 : forward_list_array
+    - associative container
+        - 삽입된 순서와 상관없이 규칙을 가지고 요소를 보관
+        - C++98 : tree -> set, multi-set , map , multi-map
+        - C++11 : hash -> unordered_map , unordered_multimap
+    - container adapter
+        - stack , queue , priority_queue
+
+- 공통적 특징
+    - 값을 보관한다.
+        - 복사본을 보관한다.
+    - 멤버 함수 뿐 아니라 "Member Type"이 있다. 
+        - ::value_type   
+        - ::interator
+    - 반복자를 가지고 있다. 
+        - s.begin()
+        - begin(s) <- it's better
+    - 제거와 리턴을 동시에 하지 않는다.
+        - s.back()을 하여 마지막을 출력하고 , 제거는 s.pop_back()을 추가적으로 해야 한다.
+    - STL 자체는 예외가 거의 없다.
+- 단위 전략 디자인  (Policy Base Design) 과 STL
+    - STL은 내부적으로 어떻게 메모리 할당을 할까?  new , malloc , 공유 메모리 , pool , system call 등...
+    - 사용자가 원하는 방식으로 바꿀수 있게 해준다. template인자로 Allocator를 받는다.
+    - Allocator
+        - 메모리 할당 정책을 담은 클래스 : allocate() , deallocate()
+        - 표준 할당기 typename Allocator = allocator<T>
+    - vector<int, MyAlloc> v; 로 자신의 것을 변경할수 있다. 
+    - 단위 전략 디자인 
+        - 클래스가 사용하는 다양한 정책을 "템플릿 인자"를 통해서 교체할수 있게 하는 디자인 기법
+    - string class
+        - using string = basic_string<char>; 
+        - using wstring = basic_string<wchat_t>;
+        - template < typename T , typename Traits = std::char_traits<T> , typename Allocator = std::allocator<T> > 
+            - 2번째는 비교 정책 클래스
+            - 대체하려면 char_traits 의 모든 member함수를 구현해야 한다.  cppreference.com
+            - 다 구현이 힘들면 calss mytraits : public char_traits<char> {} 로 선언하면 된다.  이중에 변경할 것만 만들면 된다.
+    
+## 5-2. Sequence Container
+- list
+- vector
+- deque
+- forward_list (C++11)
+- array (C++11)
+
 
 
 
