@@ -592,8 +592,8 @@ int n = p(1,2);
             - 2번째는 비교 정책 클래스
             - 대체하려면 char_traits 의 모든 member함수를 구현해야 한다.  cppreference.com
             - 다 구현이 힘들면 calss mytraits : public char_traits<char> {} 로 선언하면 된다.  이중에 변경할 것만 만들면 된다.
-    
-## 5-2. Sequence Container
+- ![](PNG/5-1.png)
+## 5-2. Sequence Container 1
 - list
 - vector
     - vector<int> v7(10,0); // 10개의 0으로 초기화
@@ -609,17 +609,199 @@ int n = p(1,2);
     - 크기
         - v.resize(7); // 10개를 7개로 줄임 ->  v.capacity() 10 이며 , v.size()만 7로
         - v.shrink_to_fit(); // 쓸데 없는 메모리 삭제
-        - 
+    - 
 - deque
 - forward_list (C++11)
 - array (C++11)
 
+- vector #2
+    - replace(begin(v[i]), end(v[i]), 'i' , ' ')  // 공백으로 치환
+    - replace_if(begin(v[i]), end(v[i]), [](char c){ return c == 'a'; } , ' ')  // lambda
+    - ```cpp
+        struct FindChar {
+            string data;
+            FindChar(string s) : data(s) {}
+            bool operator() (char c) const {
+                auto p = find (begin(data) , end(data) , c);
+                return p != end(data);
+            }
+        }
+        
+        FindChar fc("aieouAIEOU");   
+        replace_if(begin(v[i]), end(v[i]), fc , ' ')  // 함수 객체
+        ```
 
+- array
+    - vector는 heap에 잡음. 
+    - array는 stack에 잡음. 
+    - array<int , 5> arr = {1,2,3,4,5};
+    - arr.size()
+    - C++11
+    - 전방삽입 , 후방삽입 , 임의 삽입 불가
+    - raw pointer vs 객체형 반복자
+        - 반복자를 만들때 raw pointer보다는 객체형 으로 만드는 것이 좋다. 
+        - raw pointer 값으로 리턴하면 ++를 사용할수 없다.
+        - 객체형 반복자는 ++ 연산을 사용할수 있다.
+        - raw pointer도 next() 알고리즘을 사용하면 다음으로 이동할수 있다.   next(arr.gegin())
+        - 실제 STL code는 객체형으로 만들어져있음.
 
+## 5-3. Sequence Container 2
+- container와 사용자 정의 타입
+    - vector<Point> v2(10); 하면 Point가 default 생성자가 없으면 에러가 난다.
+        - vector<Point> v2(10, Point(0,0)); 하면 해결됨
+        - 사용자 정의 타입을 컨테이너에 넣을때 , 디폴트 사용자가 없을경우 복사 생성을 위한 객체를 전달해야 한다.
+    - sort (begin(v2) , end(v2)); // compare가 없어서 에러
+        - sort (begin(v2) , end(v2), [](const Point& p1,const Point& p2){ return p1.x > p2.x; });
+        - operator<  operator== 을 제공
+    - using namespace std::rel_ops;   // relation operators
+        - p1 != p2; 같은 것을 쓸수 있다. 
+        - > , != , <= , >= 의 일반화 버젼을 제공 (But , == , > 은 만들어주어야 한다.)
+        - == > operator를 만들때는 상수 함수로 만들어야 한다. const 꼭 붙여야 한다.
+- 컨테이너에 객체를 넣는 방법
+    - 1. v.push_back(p1);
+    - 2. 임시객체 넣기 : v.push_back(Poitn(10,20));  // 객체가 조금 더 빨리 파괴
+    - 3. 객체 자체를 vector가 만들게 한다. : ** v.emplace_back( 10,20); **
+        - 객체를 전달하지 말고 , 생성자 인자를 전달한다. 
+    - 4. v.push_back (move(p1));
+- allocator
+    - Point *p = new Point[2];
+    - std::allocator
+    - allocator<Point> a;   Point* p = a.allocator(1);  // operator new()
+    - a.constructor(p); 
+    - a.destroy(p); // 소멸자 호출
+    - a.deallocate (p,1);
+    - 직접 만들기
+        - C++11부터는 optional 이라는게 뭍는다. 
+        - ![](PNG/5-3.png)
+        - MyAlloc<Point> a;
+        - allocator_traits<decltype(a)::construct(a,p,1,2);  // a에 construct 함수가 있으면 그것을 실행 , 없으면 p(1,2) 수행 
+        - allocator_traits<decltype(a)::destroy(a,p);
+        
+## 5-4. container adapter
+- 개념 (constainer adapter)
+    - adapter 디자인 패턴
+        - 클래스의 인터페이스를 변경해서 **새로운 클래스** 처럼 보이게 만드는 디자인 패턴
+    - list로 할건지 , vector로 할건지를 정해서 사용할수 있게 변경해주면 좋을 듯
+        - template<typename T , typename C=deque<T> > class Stack {  C st;  ... }
+        - Stack<int,vector<int>> s;
+    - <stack>  <- stack adapter
+- STL container adapter
+    - 3가지의 container adapter가 제공된다.
+        - <stack> : stack
+        - <queue> : queue , priority_queue
+    - queue<int,vector<int>> q2;  // error가 나와야 하지만 , 에러 없이 compile이 된다.
+        - 함수만을 만들었을 뿐인 compile때는 에러가 안 나온다.
+        - 그러나, 실제로 호출할때 에러가 나야 한다. 
+        - template에서 lazy instance 때문에 실제로 사용될때 error가 나온다.
+    - ![](PNG/5-4.png)
+- priority_queue
+    - <queue>
+    - 요소를 꺼낼때 삽입한 순서에 상관없이 우선순위가 가장 높은 요소가 먼저 나온다.
+    - <  을 비교 연산자로 사용한다.
+        - <functional>
+        - priority_queue<int , vector<int> greater<int> > pq;
+    - 우선 순위를 변경하려면 템플릿 인자로 객체를 전달한다.
+        - 절대값으로 비교원할시
+        - ```cpp
+            struct abs_greater {
+                bool operator()(int a , int b) const {
+                    return abs(a) > abs(b);
+                }
+            };
+            ```
+            
+## 5-5. associative container
+- set
+    - std::set  // RB tree
+    - C++ 표준은 세부 구현을 정의하지 않는다.
+        - set을 구현하기 위해 어떤 자료구조를 사용해도 상관없다. 하지만, 대부분이 RB tree를 사용한다. 
+    - <  연산으로 비교
+    - template< class Key, class Compare=std::less<Key> , class Allocator=std::allocator<Key> > class set;
+        - set<int , greater<int>> s;
+    - 요소 삽입
+        - insert / emplace로만 요소를 삽입할수 있다. 
+        - **반복자를 통해서 값을 변경할 수 없다.**  p=begin(s);  *p=10 // error
+    - auto p2 = s.find(10); 으로 찾아야 빠르다. 
+        - find(begin(s),end(s),10); 으로도 가능하지만 root부터 찾으므로 느리다.
+    - auto ret = s.insert(20);  // <iterator , false> 로 return값이 반환됨.
+        - if(ret.second == false) cout << "fail" << endl;
+        - pair<set<int>::interator , bool> return type
+    - multiset<int> s ;   // 중복 허용
+        - multiset<int>::iterator 가 return 값  (실패가 없기 때문에)
+    - 사용자 정의 type을 set에 넣는 것
+        - s.insert(Point(1,1));   // < 연산자 필요
+        - 1. 사용자 정의 타입 안에 < 연산을 제공하거나
+        - 2. 사용자 정의 타입에 대해 < 연산을 수행하는 함수 객체를 set의 2번째 템플릿 인자로 전달한다.
+            - struct PointLess { bool operator()(const Point& p1 , const Point& p2){ ... }  };
+            - set<Point , PointLess> s;
+        - 3. set에서는 left , right 가 아니면 같다고 보기에 ==operator가 필요하지 않다.
+    - s.emplace(1,3);  // 조금더 성능이 좋다.
+- map
+    - pair를 저장하는 set
+    - key(first) 값으로 data(second) 를 저장
+    - map<stirng,string> m;
+    - data입력
+        - 1. pair 만들어 insert : pair<string,string> p1("mon","1");
+        - 2. make_pair  : m.insert(make_pair("tue","2"));
+        - 3. m["wed"] = "3";
+    - 없는 요소를 찾을때 m["Sat"]  와 같이 찾으면 새롭게 생성
+        - key가 없을 경우 , **새롭게 생성된다.**
+        - ret = m.find("sun");  if (ret == m.end()) 로 처리해야 key 가 없는 것을 확인할수 있다. 
+    - map의 반복자
+        - 반복자 : 요소를 가리키는 포인터 역할의 객체
+        - pair를 가리키는 포인터
+- C++ 표준 stream
+    - <sstream> : 메모리 (string) 입출력 
+    - string s;   cin >> s; // 표준 입력에서 한 단어
+    - ifstream fin("stream.cpp");   fin >> s;  // 파일에서 한 단어
+    - istringstream iss("I am a boy");   while(iss >> s) cout << s << endl;
+    - cout << "hello";   // 화면 출력
+    - ofstream f("a.txt");  f << "hello";  // 파일 출력
+    - **ostringstream oss;**  oss << "hello";  // oss의 버퍼에 출력  
+        - oss.str()
+        - char buf[10];  sprintf(buf,"n=%d",n);  이라고 쓰는 대신
+        - ostringstream oss2;  oss2 << "n = " << n ;  // 사이즈 상관없이 안전하게 문자열을 만들수 있다.
+    - 파일에서 단어 분석하기 (각 단어가 몇번째 줄에 나오는지)
+        - ```cpp
+            <iostream> <fstream> <sstream> <map>
+            map<string, list<int>> index;   // list대신 set을 쓰는게 더 좋을 듯 한데...
+            ifstream f("text.txt");
+            int lineno = 0;
+            string s;
+            while(getline(f,s)) // 파일에서 한줄씩 읽기
+            {
+                lineno++;
+                istringstream iss(s);
+                string word;
+                while(iss >> word){
+                    index[word].push_back(lineno);
+                }
+            }
+            
+            auto p = begin(index);
+            while(p != end(index)){
+                cout << p->first << ":" ; // 단어 출력
+                for (auto n : p->second) cout << n << " , ";
+                cout << endl;
+                ++p;
+            }
+            ```
+            
+- unordered_set , unordered_map
+    - C++11
+    - hash table 기반의 자료 구조
+    - <functional>
+    - hash function : hash라는 이름의 functor로 제공
+        - hash<int> hi;  hi(50);
+- unordered_set
+    - hash table을 사용하는 set
+    - 정렬 상태를 유지하지 않는다.
+    - set : < 사용 , unordered : hash 사용
+    - template< class Key , class Hash = std::hash<Key> , class KeyEqual=std::equal_to<Key> , class Allocator = std::allocator<Key> > class unordered_set;
+        - 사용자 타입에 대한 hash 함수 (Functor)가 필요하다.
+        - 사용자 타입에 대한 equality 를 조사하는 Functor가 필요
+        
 
-
-
-
-
-
-
+# 6. 유틸리티 (utility)
+## 6-1. Smart Pointer #1
+- 
