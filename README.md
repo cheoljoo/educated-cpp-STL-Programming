@@ -804,4 +804,337 @@ int n = p(1,2);
 
 # 6. 유틸리티 (utility)
 ## 6-1. Smart Pointer #1
-- 
+- 개념
+    - 포인터와 유사하게 동작하는 추상화된 타입으로 포인터의 기능외에 자동화된 자원 관리등의 기능을 추가로 제공한다.
+    - shared_ptr<Car> p(new Car);   // include <memory>  : 객체이므로 끝날때 소멸자가 불려진다. 
+    - Car* p ; // 진짜 포인터
+    - raw pointer : 생성자 , 소멸자등을 가질수 있다.
+    - smart pointer : 생성자 , 소멸자등을 가진다.  생성 / 복사 / 대입 / 소멸 의 과정에 추가적인 기능을 수행할수 있다. 일바적으로 소멸자에서 자동화한 자원 관리를 수행한다.
+- 원리
+    - shared_ptr<Car> p(new Car);  p->Go(); // p.operator->()
+    - 소멸자에서 자원을 삭제 한다
+- c++ 표준 스마트 포인터 
+    - shared_ptr<>  , weak_ptr<> , unique_ptr<>
+- shared_ptr
+    - <memory> header
+    - int a = 0;  // copy initialization
+    - int a(0);   // direct initialization
+    - shared_ptr<Car> p = new Car;  // error : 복사 초기화 허용 안함
+    - shared_ptr<Car> p(new Car);   // ok
+    - copy초기화 될수 없고 , direct 초기화만 가능한다. - explicit 생성자
+        - explicit키워드는 이런 상황에서 사용합니다. 자동 형 변환을 의도하지 않은 사용법인 경우, 버그를 야기할 수도 있기 때문에 explicit키워드를 써서 컴파일러가 파라미터 형 변환을 위해 생성자를 호출하는 것을 막아 버그를 방지할 수 있습니다.
+    - shared_ptr<Car> p2 = p1;
+        - shared_ptr 생성시 , 참조 계수 등을 관리하는 제어 블럭이 생성된다. 
+        - 자원을 공유(share)하는 스마트 포인터
+    - 삭제가 변경
+        - shared_ptr<Car> p(new Car , foo); 
+        - shared_ptr<> 생성자의 2번째 인자로 삭제자 전달
+            - 함수 , 함수 객체 , 람다 표현식 가능
+        - foo 수행되고 , ~Car)() 수행됨
+    - 할당자 변경
+        - 3번째 인자 
+        - 제어블럭을만들고 파괴할때 할당자 사용
+        - shared_ptr<Car> p(new Car , [](Car* p){ delete p; }  , MyAlloc<Car>() )
+        - 수행 | c++filt   쓰면 demangling 시켜준다.
+    - shared_ptr과 배열 - until C++17
+        - 삭제자를 변경해야 한다. 
+        - [] 연산 제공하지 않음. 
+        - shared_ptr을 사용해서 배열을 관리하는 것은 권장하지 않는다. - vector , array 사용 권장
+        - C++17 이후
+            - shared_ptr<Car> p1(new Car[10]);   // error - delete[] , [] 연산 없음. 
+            - shared_ptr<Car[]> p1(new Car[10]);  // delete[] , [] 연산 있음.
+- shared_ptr의 다양한 현상들
+    - shared_ptr<Car> p1(new Car);
+    - p1->Go() ; // Car의 멤버 접근
+    - p1.   // shared_ptr 주요 멤버 함수 
+        - 대상체의 포인터 변환 Car* p = p1.get();
+        - 참조계수 반환 p1.usee_count();
+        - 대상체 변경 p1.reset( new Car );
+        - 대상체 교환 p1.swap(p2);
+- make_shared
+    - shared_ptr<Car> p1(new Car);  에서 동적 메모리 할당이 몇번 일어나는가? 
+        - void* operator new(size_t sz){} 재정의 가능
+        - 2번 할당됨을 볼수 있다. 
+    - 2번 할당되는 것을 1번만 할당하는 것으로 변경하기 위해서 make_shared<Car>(); 을 사용
+        - 메모리 할당이 효과적이다. 
+    - shared_ptr<Car> p1 = make_shared<Car>(); // ok
+    - shared_ptr<Car> p1 (make_shared<Car>()); // ok
+    - 예외 상황에 좀 더 안전하다. 
+        - f( shared_ptr<Car>(new Car), foo() ); f의 호출시 3가지 일이 발생한다.
+            - 예로 Car를 할당하고, foo 를 쓰고 , shared_ptr를 만들때 , foo를 하다가 예외가 발생하면 메모리 문제가 발생할수 있다.
+        - f (make_shared<Car>() , foo() ); 으로 하면 make_shared()를 한번에 수행하므로 안전
+    - shared_ptr<Car> p1 = allocate_shared<Car>(MyAlloc<Car>())
+        - 메모리 할당/해지 방식을 변경하려면 allocate_shared를 사용한다. 
+- shared_ptr 사용시 주의 할점
+    - raw pointer를 사용해서 2개 이상의 shared_ptr를 생성하면 안된다.
+        - shared_ptr<Car> sp1(p);  shared_ptr<Car> sp2(p); 를 하면 문제가 발생한다.   // error
+        - shared_ptr<Car> sp3(new Car); // RAII (resource acquition is initialize)  : shared_ptr 만들때 new를 해라.   ok
+        - shared_ptr<Car> sp3 = make_shared<Car>();  // better
+- enable_shared_from_this
+    - thread Worker 객체의 수명 
+        - 주 스레드의 sp1도 사용하지 않고 , 새로운 스레드도 종료 되었을대 파괴되어야 한다.
+        - Worker객체가 자기 자신의 참조 계수를 증가해야 한다.
+        - class Worker : public enable_shared_from_this<Worker>      // CRTP : 자기 이름을 인자로 또 넣어주는 경우 
+        - shared_from_this() 함수 사용하여 내부적으로 shared_ptr<Worker> holdme; 로 잡을수 있다.
+            - holdme = shared_from_this();
+        - shared_from_this()를 호출하기 전에 반드시 제어 블럭이 생성되어 있어야 한다.
+        - thread 종료 되었을때 , holdme.reset(); 을 하면 thread가 다 처리된후에 파괴된다.
+
+## 6-2. smart pointer #2
+- shared_ptr 의 상호 참조 문제
+    - 이런 경우 자동으로 delete가 안된다. 
+        - shared<People> p1(new People("kim"));
+        - shared<People> p2(new People("lee"));
+        - p1->bf = p2;    // shared_ptr<People> bf;
+        - p2->bf = p1;
+    - 내부적인 포인터들은 참조계수가 증가하면 안된다. 
+        - 참조 계수가 증가하지 않는 포인터 : raw pointer
+            - People *bf;    p1->bf = p2.get();  p2->bf = p1.get();
+        - p2가 먼저 파괴될때 , p1에서의 bf를 보고 뭔가를 하면 error
+        - 단점 : 대상 객체가 파괴되었는지 알수 없다.  -> 해결책 : weak_ptr
+- weak_ptr  (상호 참조시는 weak_ptr 사용)
+    - weak_ptr<Car> wp;    // use count 증가 안함.
+    - wp.expired()  == true이면 destroy가 된 것이다. 
+    - ```cpp
+        weak_ptr<Car> wp;
+        {
+            shared_ptr<Car> sp(new Car);
+            wp = sp;
+        }
+        if (wp.expired() ) cout << "destroy" << endl;
+        else {
+            cout << "not destroy" << endl;
+            // weak_ptr을 사용해서는 대상객체를 접근할수 없다.
+            wp->Go(); //error
+            
+            // weak_ptr을 가지고 다시 shared_ptr을 만들어야 한다.
+            shared_ptr<Car> sp2 = wp.lock();
+            if(sp2) sp2->Go();    // sp2가 유효한지도 한번더 check해야 한다.
+        }
+        ```
+    - ![](PNG/6-2.png)
+    - ```cpp
+        class People { ...
+            weak_ptr<People> bf;
+            void Go() {}
+        };
+        
+        shared_ptr<People> p1 (new People("K"));
+        { 
+            shared_ptr<People> p2(new People("T"));
+            p1->bf = p2;
+            p2->bf = p1;
+        }
+        // bf의 Go를 호출하고 싶으면 
+        shared_ptr<People> sp2 = p1->bf.lock();
+        if(sp2) sp2->Go();
+        ```
+    - use_count == 0 일때 대상 객체는 파괴되지만 제어 블록은 use_count , weak_count가 모두 0일때 파괴된다. 
+    - 제어블럭에 vptr (가상 함수) 들도 들어가 있다. 
+
+- unique_ptr
+    - unique_ptr<Car> up1(new Car); // 자원 독점
+    - unique_ptr<Car> up2 = up1;  // error
+    - 기본적으로 raw pointer와 동일한 크기를 가진다. 단 삭제자 변경시 크기가 커질수 있다.
+    - 복사 될수 없지만 , 이동은 될 수 있다.
+        - unique_ptr<Car> up2 = move(up1);  // ok. 
+    - 삭제자 변경
+        - 템플릿 인자와 생성자를 사용해서 전달
+        - 1. 함수 객체 사용
+            - unique_ptr<int , Deleter> up(new int);  // 함수 객체 
+            - struct Deleter { void operator()(int *p) const { delete p; } }
+        - 2. 람다 표현식 사용
+            - auto f = [](int*p){delete p; }   unique_ptr<int , decltype(f)> up(new int,f);  
+        - 3. 함수 포인터 사용
+            - unique_ptr<int , void(*)(int*)> up(new int,foo);  
+    - 배열
+        - unique_ptr<int[]> up(new int[10]);  // c++11
+- shared_ptr 과 unique_ptr
+    - shared_ptr<int> sp1 = up ; // error
+    - shared_ptr<int> sp2 = move(up); // ok
+    - unique_ptr<int> up1 = sp; // error
+    - unique_ptr<int> up2 = move(sp); // error
+    - 함수 return type을 unique_ptr<> 로 return하는 것이 좋다. 
+        - 이유는 unique_ptr , shared_ptr 어떤 것으로 선언해도 받을수 있다. 
+        
+## 6-3. Chrono
+- ratio template
+    - 컴파일 시간 분수 값을 나타내는 템플릿
+    - <ratio>
+    - 2개의 static member data로 구성된다. 
+        - num : 분자 (numerator)를 타나내는 컴파일 시간 상수
+        - den : 분모(denominator)를 나타내는 컴파일 시간 상수
+    - 분자 , 분모는 컴파일 시간 연산을 통해서 약분된 상태로 저장된다.
+    - ration 자체가 실행 시간에 메모리에 보관하는 값은 없고 , 오직 컴파일 시간에 사용되는 상수 값이다. 
+    - ratio<2,4>::num // 1
+    - ratio<2,4>::den // 2
+- compile time ratio 연산
+    - ratio_add<분수 , 분수> r2;
+        - ratio_add< ratio<1,4> , ratio<2,4> > r2;   // 3/4
+    - ![](PNG/6-3.png)
+- duration
+    - duration < double , ratio<1,1> > d1 = 3;  // 3m
+    - duration <double , ratio<1,1000> > d2 (d1);  // milli 3000
+    - cout << d2.cout() << endl;  // 3000
+    - duration <double , ratio<1000,1>> d3 (d1);  // km
+    - cout << d3.count() << endl;  // 0.003
+    - <chrono> 헤더
+    - namespace chrono;
+    - ratio 로 표현되는 단위(주기)에 대한 값을 보관하는 클래스 
+    - 오직 하나의 값만을 보관한다. 
+    - duration을 사용하면 단위에 맞게 자동으로 연상이 수행된다.
+    - using MilliMeter = duration<double,milli>;
+- duration with int 
+    - KiloMeter km = duration_cast<KiloMeter>(m);  // 버림.
+    - 큰 단위로 옮길때 int일 경우 data손실이 발생하므로 , 그냥 쓰면 error이지만, cast를 하면 버림 , 반올림등으로 처리 가능하다.
+- chrono (시간)
+    - C++표준에 시간 관련 타입 정의 됨 
+    - 작은 type이 큰 type에 들어갈때는 duration_cast 필요
+    - using days = duration <int , ratio<3600 * 24 , 1>>;  // 없으면 이렇게 만들면 된다.
+    - 초기화 방법 : explicit 생성자 이므로 direct initialization 만 사용가능
+        - seconds s1(3); // ok
+        - seconds s2 = 3 ; // error
+        - seconds s3 = 3s; // ok .  seconds operator""s(3) 복사 생성자
+        - void foo(seconds s){}    
+            - foo(3s); // ok   
+            - foo(3);  //error
+        - this_thread::slepp_for(3s); 
+    - 시간 관련된 user define literal 사용 - 복사 생성
+        - ![](PNG/6-3-2.png)
+    - 시간 구하기
+        - time_point
+            - 기간의 시작과 경과 개수를 나타내는 타입
+            - epoch time : 1970년 1월 1일 0시를 기점으로 경과된 시간단위
+        - system_clock::time_point tp = system_clock::now();
+        - nanoseconds ns = tp.time_since_epoch();
+        - cout << ns.count() << endl;
+        - hours h = duration_cast<hours>(ns);  cout << h.count() << endl;
+        - 문자열 변환
+            - time_t t = system_clock::to_time_t(tp);
+            - string s = ctime(&t);  cout << s << endl;
+
+## 6-4. function & bind
+- bind
+    - 함수의 인자를 고정한 새로운 함수를 만들때 사용
+    - <functional>
+    - namespace std::placeholders;
+    - placeholders: _1 , _2, _3 ...
+    - bind(&f1,1,2,_1)(10);     // f1(1,2,10);
+    - void f2(int& a) { a = 20; }
+        - int n=0;
+        - bind(&f2,n)(); // f2(n)
+        - cout << n << endl;   // 0 이 나옴.   인자를 고정할때 값 방식으로 고정한다. 
+        - C++의 참조를 흉내내서 쓴다. 
+            - bind (&f2 , ref(n))();  // 20   // cref는 const 참조로 고정해 달라. 
+                - reference_wrapper<int> r(n);
+                - bind(&f2,r)();  // 이러면 20이 나온다. 
+    - ref()  : 참조 바인딩
+- member 함수/데이터 의 bind
+    - class Test {   void f(int a, int b){ } };
+    - 모든 종류의 callable object에 사용가능
+    - Test t;  bind(&Test::f, &t , 1,2)();  // t.f(1,2)
+    - Test t;  bind(&Test::f, t , 1,2)();  // t.f(1,2)  <- 이것은 복사본을 가지고있는 것이다. 
+    - Test t;  bind(&Test::f, ref(t) , 1,2)();  // t.f(1,2) 
+    - Test t;  bind(&Test::f, 1,2)(t);
+    - Test t;  bind(&Test::f, 1,2)(&t);
+    - bind(&Test::data, &t)() = 10;  // t.data = 10   setter를 만든 것과 같다.
+- function
+    - void f1(int a)
+    - void f2(int a,int b, int c)
+    - <functional>
+    - 함수 포인터를 일반화 한 개념
+    - callable object를 보관했다가 나중에 호출할때 사용
+    - 함수 signature가 다른 경우 bind()와 함께 사용
+    - ```cpp
+        function<void(int)> f;   // 인자가 1개 이상이면 다 된다. 많으면 bind를 사용하면 됨.
+        f = &f1; // ok
+        f(10); // f1(10);
+        f = bind(&f2,1,2,_1);   // 뒤에 ()을 붙이면 호출 , 안 붙이면 함수까지만
+        f(10);
+        ```
+- member 함수와 function
+    - 멤버 함수를 호출하려면 반드시 객체가 있어야 한다.
+    - bind를 사용하여 객체를 고정하는 방식
+    - function으로 호출할때 객체를 전달하는 방식
+    - ```cpp
+        class Test {
+            void f(int a , int b) {}
+        };
+        Test t;
+        // 1. 일반함수 모양의 function
+        function<void(int)> f1;
+        f1 = bind(&Test::f, &t , _1 , 20);
+        f1(10); // t.f(10,20);
+        
+        // 2. 객체를 function의 인자로 받는 방법
+        function<void(Test* , int)> f2;
+        f2 = bind(&Test::f, _1,_2,20);
+        f2(&t,100);  // t.f(100,20);
+        
+        function<void(Test , int)> f3;
+        f3 = bind(&Test::f, _1,_2,20);
+        f3(t,200);  // t.f(200,20);  복사본이므로 계속 100으로 나올 것임
+        
+        function<void(Test& , int)> f4;
+        f4 = bind(&Test::f, _1,_2,20);
+        f4(t,300);  // t.f(300,20);  300으로 바뀜 (복사본 아님)
+        ```
+
+- member data와 function
+    - public member data도 function에 담을수 있다. 
+    - member data도 접근하려면 객체가 필요하다.
+    - bind를 사용해서 객체를 고정하는 방식
+    - function으로 호출할때 객체를 전달하는 방식
+    - ```cpp
+        // 1. 
+        funciton<int()> f1;   // function은 함수만 담을수 있다. 
+        f1 = bind(&Test::data, &t1);  // t1.data를 보관
+        cout << f1() << endl;  // t1.data의 getter가 된다.
+        
+        f1() = 20;  // error
+        function<int&()> f2;
+        f2 = bind(&Test::data, &t1);  // t1.data를 보관
+        f2() = 20; // ok
+        
+        // 2. 객체를 function 인자로 전달하는 방식 
+        function<int&(Test*)> f2;
+        f2 = bind(&Test::data,_1);
+        f2(&t1) = 20;
+        f2(&t2) = 30;
+        ```
+- example
+    - function4.cpp 
+        - Notificaiton Center 예제
+            - 이벤트 종류를 나타내는 키 값으로 함수 등록
+            - 이벤트 발생시 해당하는 함수를 호출
+    - ```cpp
+        class NotificationCenter
+        {
+            using HANDLER = function<void(void*)>;
+            map<string,vector<HANDLER>> notif_map;
+            void Register(string key , HANDLER h)
+            {
+                notif_map[key].push_back(h);
+            }
+            void Notify(string key , void* param)
+            {
+                vector<HANDLER>& v = notify_map[key];
+                for (auto f : v)
+                    f(param);
+            }
+        }
+        void f1(void* p){ cout << "f1" << endl; }
+        void f2(void* p,int a , int b){ cout << "f2" << endl; }
+        
+        int main()
+        {
+            NotificationCenter nc;
+            nc.Register("CW", &f1);
+            nc.Register("CW", bind(&f2,_1,0,0) );
+            
+            nc.Notify("CW",(void*)(0));
+        }
+        ```
+
+
+        
