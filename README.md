@@ -1136,5 +1136,86 @@ int n = p(1,2);
         }
         ```
 
+# 7. 동시성 (Concurrency)
+## 7-1. thread
+- <thread>
+- std::this_thread namespace
+    - thread::id get_id()    // cout << this_thread::get_id() << endl;
+    - sleep_for(duration)    // chrono this_thread::sleep_for(2s)
+    - sleep_until(time_point)  // chrono::system_clock::now() + 3s
+    - yield()
+- thread 생성  (뒤에 join / detach를 수행해야 한다.)
+    - thread t(&foo);    // 바로 생성되어 함수 수행
+    - t.join();     // thread 종료를 대기
+    - t.detach();   // thread와의 관계를 끊어버림.
+- C 언어에서의 thread 함수 
+    - pthread_create , CreateThread
+    - 인자 1개 (void*)를 가져야 한다.
+- C++ STL에서의 thread
+    - 일반함수 , 멤버 함수 , 함수 객체 , 람다 표선식 등 모두 호출 가능한 모든 요소를 사용할수 있다.
+    - 인자 갯수에도 제한이 없다.
+        - thread t1(&f1);
+        - thread t2(&f2,5);
+        - Worker w; thread t3(&Worker::Main,&w);
+        - Functor f; f();  thread t4(f);
+        - thread t5([](){ cout << "thread t5" << endl; });
+        - t1~5.join();
+- 인자 전달 방법
+    - thread t1(&f1 , 1,2);
+    - thread t2( bind (&f1,1,2));
+    - 참조로 가지고 있을때는 ?  ref() 사용 
+        - void f1(int a , int& b) { b = 30; }
+        - int n=10;  thread t1(&f1 , 1, ref(n));
+        - 그러나, 서로 다른 thread에서 참조로 보내는 것은 위험하다. 
+- synchronozation
+    - mutex , timed_mutex , recursive_mutex , recursive_timed_mutex , shared_mutex , shared_timed_mutex
+    - conditional variable
+    - call_once
+    - lock_guard<mutex> lg(m);  // 생성자에서 m.lock
+        - 블럭 벗어날때 자동으로 unlock됨.
+- thread간 데이터 공유 
+    - 전역변수 , 공유 메모리 등을 사용
+    - promise , future 객체 사용
+- promise , future
+    - <future>
+    - promise<int> p;
+    - future<int> ft  = p.get_future();
+    - thread t(&f1, ref(p));
+    - cout << "value:" << ft.get() << endl;  // 대기 
+    - t.join()
+        - void f1(promise<int>& p)
+        - this_thread::sleep_for(3s);
+        - p.set_value(10);
 
+## 7-2. async
+- thread를 생성하는 2가지 방법
+    - thread 클래스 이용 - low lvevel api
+    - async 함수 사용 - high level api
+    - future<int> ft = async(launch::async, &f1);
+    - cout << "main routine" << endl;
+    - cout << ft.get() << endl;  // f1이 안 끝났으면 여기서 대기를 하고 있다.
+        - int f1() { this_thread::sleep_for(3s); return 10; }
+- ft.get을 하지 않아도 block을 벗어날때 , thread f1이 끝날때까지 기다려 준다.
+- launch policy
+    - launch::async
+    - launch::deferred
+    - launch::async | launch::deferred
+    - ```cpp
+        int f1() {
+            cout << "f1: " << this_thread::get_id() << endl;
+        }
+        future<int> ft = async(launch::async , &f1);
+        this_thread::sleep_for(1s);
+        cout << "main routine" << endl;
+        cout << ft.get() << endl;
+        
+        
+        future<int> ft  = async(launch::deferred,&f1); // f1을 지연된 실행 (get을 호출할때 thread 실행)
+        future<int> ft  = async(launch::async | launch::deferred,&f1); // 가능하면 thread로 해달라. thread가 지원되지 않으면 f1을 지연된 실행을 하겠다.  (get을 호출할때 thread 실행)
+        ```
+- async의 return 값을 받지 않았을때 
+    - async(launch::async , &f1);  // 이렇게 return 값을 안 받을때 
+        - 리턴값으로 future<int> 객체
+        - 리턴용 임시 객체는 그 줄의 끝에서 바로 파괴 
+    - 다음줄로 내려가지 못하고 그 자리에서 대기하게 된다. async의 의미가 없네!!
         
