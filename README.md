@@ -870,7 +870,7 @@ int n = p(1,2);
         - shared_ptr<Car> sp1(p);  shared_ptr<Car> sp2(p); 를 하면 문제가 발생한다.   // error
         - shared_ptr<Car> sp3(new Car); // RAII (resource acquition is initialize)  : shared_ptr 만들때 new를 해라.   ok
         - shared_ptr<Car> sp3 = make_shared<Car>();  // better
-- enable_shared_from_this
+- enable_shared_from_this : shared_ptr 사용시 this로 부터 관리 객체를 공유 할수 있게 하기 위해서 사용하는 기반 클래스
     - thread Worker 객체의 수명 
         - 주 스레드의 sp1도 사용하지 않고 , 새로운 스레드도 종료 되었을대 파괴되어야 한다.
         - Worker객체가 자기 자신의 참조 계수를 증가해야 한다.
